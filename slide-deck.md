@@ -25,9 +25,21 @@ Agenda
 
 ---
 
+# EU Digital Identity - Origins
+
+- **eIDAS** // **e**lectronic **ID**entification, **A**uthentication and trust **S**ervices
+  - 2016: eIDAS
+  - 2024: eIDAS 2.0
+- Independent sovereign solution for Europe
+- Toolbox - Architecture and Reference Framework (ARF)
+
+<!-- footer: https://github.com/eu-digital-identity-wallet -->
+
+---
+
 ![bg 90% right](assets/eudi-wallet-smartphone-mockup.png)
 
-# EU Digital Identity Wallet
+# EU Digital Identity - Wallet
 
 - Authenticate
 - Store
@@ -56,10 +68,10 @@ Agenda
 
 # Credential Types
 
-## `SD-JWT`
+## IETF `SD-JWT`
 - **S**elective **D**isclosure for **J**SON **W**eb **T**okens
 
-## `mDOC`
+## ISO `mDOC`
 - **M**obile **Doc**ument
 
 ---
