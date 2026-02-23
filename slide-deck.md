@@ -137,12 +137,12 @@ We support both formats in our implementation, but SD-JWT is the primary format 
 └───────┬──────────────────┬───────────────────┬───────────────┘
         │ trusts           │ trusts            │ trusts
         ▼                  ▼                   ▼
-┌───────────────┐  ┌──────────────┐  ┌─────────────────────────┐
-│  Credential   │  │    Wallet    │  │ Verifier / Relying Party│
-│  Issuer       │  │   (Holder)   │  │ (e.g. Keycloak)         │
-└───────┬───────┘  └──┬───────┬───┘  └──────────┬──────────────┘
-        │  OID4VCI    │      │      OID4VP     │
-        └─────────────┘      └─────────────────┘
+┌───────────────┐  ┌──────────────┐  ┌──────────────────────────┐
+│  Credential   │  │    Wallet    │  │ Verifier / Relying Party │
+│  Issuer       │  │   (Holder)   │  │ (e.g. Keycloak)          │
+└───────┬───────┘  └──┬───────┬───┘  └──────────┬───────────────┘
+        │  OID4VCI    │       │      OID4VP     │
+        └─────────────┘       └─────────────────┘
 
 ┌───────────────────────┐  ┌──────────────────────────────────┐
 │ Attestation Provider  │  │ Status Provider                  │
