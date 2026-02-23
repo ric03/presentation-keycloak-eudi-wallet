@@ -202,8 +202,7 @@ The flow starts with the user authenticating normally. Keycloak then generates a
 
 ```
 openid-credential-offer://?credential_offer_uri=
-  https://keycloak.example/realms/myrealm/
-    protocol/oid4vc/credential-offer/abc123
+  https://keycloak.example/realms/myrealm/protocol/oid4vc/credential-offer/abc123
 ```
 
 Offer contains:
@@ -237,6 +236,56 @@ Each of these involves specific standards and mechanisms.
 
 <!--
 Let's go through each of these steps in detail. This is where most of the complexity lives.
+-->
+
+---
+
+<style scoped>
+.mermaid { margin: -80px 0 -40px 0; }
+</style>
+
+# OID4VP — Full Flow (Pass by Reference)
+
+<div class="mermaid">
+sequenceDiagram
+    participant U as User/Browser
+    participant V as Verifier
+    participant W as Wallet
+    U->>V: Trigger wallet login
+    V->>U: openid4vp://?request_uri=...&client_id=...
+    U->>W: Open wallet
+    W->>V: Fetch request_uri
+    V->>W: Signed request object JWT
+    W->>W: Verify signature, show consent
+    W->>W: Encrypt response (ephemeral key)
+    W->>V: POST /response (JWE vp_token)
+    V->>V: Decrypt & verify
+    V->>U: Login success
+</div>
+
+<!--
+This is the complete OID4VP flow using pass by reference. Instead of embedding the full request in the URL, we only pass a request_uri — a short URL pointing to the signed request object. The wallet fetches the actual request from that URI. This is important because the request object can be quite large — it contains the DCQL query, client metadata with encryption keys, and the verifier's registration certificate. Putting all of that into a QR code or redirect URL would be impractical. The request_uri keeps the initial redirect small and clean.
+-->
+
+---
+
+# OID4VP & SIOPv2 — Extending OAuth / OIDC
+
+Two specs that work together on top of OAuth 2.0 / OIDC:
+
+| Spec | What it adds | `response_type` |
+|------|-------------|-----------------|
+| **OID4VP** | Verifiable Presentations | `vp_token` |
+| **SIOPv2** | Wallet as Self-Issued OP | `id_token` |
+| **Both** | Combined | `vp_token id_token` |
+
+- **SIOPv2** — the wallet acts as its own OpenID Provider, issuing `id_token`s signed with the holder's key (no central IdP needed)
+- **OID4VP** — adds `vp_token` for presenting verifiable credentials
+- Both specs reuse the standard OAuth 2.0 authorization request/response flow
+- HAIP / EUDI ecosystem primarily uses **`vp_token`** only
+
+<!--
+These two specs are companions. SIOPv2 — Self-Issued OpenID Provider version 2 — turns the wallet into its own identity provider. Instead of redirecting to Google or GitHub, the wallet itself issues an id_token signed with the holder's key. OID4VP builds on top of this and adds the vp_token response type for presenting verifiable credentials. You can use them independently or together. When combined, the verifier gets both a self-issued id_token and a verifiable presentation in one response. In the EUDI ecosystem, we almost exclusively use vp_token alone because the credential itself carries all the identity information we need. But SIOPv2 is relevant when you want a wallet-level identity assertion — for example to correlate the wallet instance itself across sessions.
 -->
 
 ---
@@ -275,32 +324,6 @@ DCQL is the new way to express what credentials and claims you want from the wal
 
 <!--
 This query asks for a PID credential in SD-JWT format, specifically requesting family name, given name, and birthdate. The wallet will only disclose these specific claims thanks to selective disclosure.
--->
-
----
-
-# DCQL — Advanced: credential_sets
-
-```json
-{
-  "credentials": [
-    { "id": "german_pid", "format": "dc+sd-jwt", ... },
-    { "id": "mdl", "format": "mso_mdoc", ... }
-  ],
-  "credential_sets": [{
-    "purpose": "Identity verification",
-    "options": [
-      ["german_pid", "mdl"],
-      ["german_pid"]
-    ]
-  }]
-}
-```
-
-Wallet picks the **first** option it can satisfy.
-
-<!--
-credential_sets let you express complex requirements. Here we prefer both PID and driving license, but will accept just the PID. The wallet evaluates options top to bottom and picks the first one it can fulfill. We'll see a real use case for this when we discuss the German PID.
 -->
 
 ---
@@ -754,8 +777,7 @@ We don't rely on any single flow. The login page detects browser capabilities an
 
 **Same-device redirect:**
 ```
-openid4vp://?client_id=x509_san_dns:example.com
-  &request_uri=https://example.com/request/abc123
+openid4vp://?client_id=x509_san_dns:example.com&request_uri=https://example.com/request/abc123
 ```
 
 **Cross-device QR code:**
