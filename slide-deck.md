@@ -48,6 +48,14 @@ Welcome everyone. Today we'll dive deep into how we integrated the EU Digital Id
 
 ---
 
+# About Us
+
+**Dominik Schlosser** — Freelance Software Architect
+
+**Tom Schneider** — Software Developer at Bundesagentur für Arbeit
+
+---
+
 # Agenda
 
 1. Introduction: EUDI-Wallet, Specs & Credential Types
@@ -81,7 +89,7 @@ We'll spend most of our time on OID4VP and the Keycloak integration since that's
 # EU Digital Identity — Origins
 
 - **eIDAS** — **e**lectronic **ID**entification, **A**uthentication and trust **S**ervices
-  - 2016: eIDAS 1.0
+  - 2014: eIDAS 1.0
   - 2024: eIDAS 2.0
 - Independent sovereign solution for Europe
 - Architecture and Reference Framework (ARF)
@@ -165,7 +173,7 @@ This is the big picture. The Trust Anchor publishes trust lists so wallets can v
 
 # Keycloak OID4VCI — Preview Feature
 
-- Built-in support since Keycloak 24+ (preview)
+- Built-in support since Keycloak 24+ (experimental)
 - Implements the **Pre-Authorized Code Flow**
 - Issuer metadata at `/.well-known/openid-credential-issuer`
 - Credential signing using realm keys
@@ -328,19 +336,19 @@ This query asks for a PID credential in SD-JWT format, specifically requesting f
 
 ---
 
-# Client Authentication — client_id Schemes
+# Client Authentication — Client Identifier Prefixes
 
 How does the wallet know **who** is asking for credentials?
 
-| Scheme | client_id format | Trust basis |
+| Prefix | client_id format | Trust basis |
 |--------|-----------------|-------------|
-| `plain` | `https://example.com` | Pre-registration |
+| *(none)* | `https://example.com` | Pre-registration |
 | `x509_san_dns` | `x509_san_dns:example.com` | X.509 certificate |
 | `x509_hash` | `x509_hash:<base64url(sha256)>` | Certificate fingerprint |
-| `verifier_attestation` | Varies | Trust anchor JWT |
+| `verifier_attestation` | `verifier_attestation:<sub>` | Attestation JWT in request |
 
 <!--
-The client_id scheme tells the wallet how to verify the verifier's identity. For production use, you'll want x509_san_dns or verifier_attestation. Plain is really only for testing.
+The client identifier prefix tells the wallet how to verify the verifier's identity. Pre-registered clients use their client_id without any prefix. For production use, you'll want x509_san_dns or verifier_attestation.
 -->
 
 ---
@@ -423,11 +431,10 @@ The sd_hash is computed over the ENTIRE SD-JWT presentation string — the issue
 |------|-----------|-----------|----------|
 | `direct_post` | HTTP POST | No | Legacy / testing |
 | `direct_post.jwt` | HTTP POST | JWE | Same-device redirect |
-| `dc_api` | DC API callback | No | DC API (unencrypted) |
 | `dc_api.jwt` | DC API callback | JWE | DC API (encrypted) |
 
 <!--
-These are the four response modes defined in OID4VP. The .jwt variants wrap the response in a JWE, the others send it unencrypted. HAIP mandates the encrypted variants.
+These are the three response modes defined in OID4VP. The .jwt variants wrap the response in a JWE. HAIP mandates the encrypted variants — direct_post.jwt for redirect flows and dc_api.jwt for the Digital Credentials API.
 -->
 
 ---
@@ -981,6 +988,25 @@ The new features integrate nicely into existing architecture.
 
 <!--
 So, to answer the title question: yes, it really is a match made in heaven. Keycloak was designed to be extensible, and the verifiable credentials world is built on top of OAuth and OIDC — the very protocols Keycloak already implements. The broker SPI, mappers, session management — all of it maps cleanly to what we need for wallet authentication. We didn't have to fight the framework; we extended it naturally.
+-->
+
+---
+
+# OID4VP Features → Implementation
+
+| OID4VP Requirement | Keycloak Implementation |
+|---|---|
+| Authorization Request (JAR) | Custom Identity Provider SPI — builds signed request objects |
+| DCQL query | Auto-generated from IdP mapper configuration |
+| `direct_post.jwt` response | REST endpoint via realm resource provider |
+| Response encryption | Ephemeral keys in authentication session |
+| SD-JWT / mDOC verification | Nimbus JOSE, Authlete SD-JWT, COSE-Java — extended where needed |
+| Issuer trust validation | ETSI trust list integration, configurable per IdP |
+| DC API, same-device, cross-device | Three flows, toggleable in Admin UI |
+| HAIP compliance | Single config toggle enforcing all requirements |
+
+<!--
+This slide shows how each OID4VP requirement maps to a Keycloak concept. The key point is that we're not reinventing the wheel — we're building on existing Keycloak SPIs. The Identity Provider SPI handles the protocol flow, the mapper SPI handles claim extraction, authentication sessions store ephemeral state, and the Admin UI provides configuration. If you've configured any other Keycloak Identity Provider before, this will feel very familiar.
 -->
 
 ---
