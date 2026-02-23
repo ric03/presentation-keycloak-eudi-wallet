@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 24
 
-      - run: npx @marp-team/marp-cli@latest slide-deck.md -o dist/index.html
+      - run: npx @marp-team/marp-cli@latest slide-deck.md -o dist/index.html --html
       - run: cp -r assets dist/
 
       - name: Upload artifact
