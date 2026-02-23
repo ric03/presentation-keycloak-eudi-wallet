@@ -67,10 +67,12 @@ We'll spend most of our time on OID4VP and the Keycloak integration since that's
 
 # EU Digital Identity — Wallet
 
-- Authenticate
-- Store credentials
-- Share selectively
-- Sign documents
+- Authenticate with online services
+- Store and share credentials selectively
+- Sign documents electronically
+- Receive and share government attestations ("Nachweise")
+
+**Our focus today: Authentication via Keycloak**
 
 <!-- footer: https://ec.europa.eu/digital-building-blocks/sites/spaces/EUDIGITALIDENTITYWALLET/pages/791609471/What+is+the+Wallet -->
 
@@ -129,23 +131,23 @@ We support both formats in our implementation, but SD-JWT is the primary format 
 # EUDI Ecosystem — Roles & Interactions
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                     Trust Anchor (TSL)                          │
-│           Publishes trusted entity lists (ETSI TS 119 612)     │
-└───────┬──────────────────┬──────────────────────┬──────────────┘
-        │ trusts           │ trusts               │ trusts
-        ▼                  ▼                      ▼
-┌───────────────┐  ┌──────────────┐  ┌──────────────────────────┐
-│ Credential    │  │   Wallet     │  │ Verifier / Relying Party │
-│ Issuer        │  │   (Holder)   │  │ (e.g. Keycloak)          │
-└───────┬───────┘  └──┬──────┬───┘  └──────────┬───────────────┘
-        │  OID4VCI    │      │      OID4VP      │
-        └─────────────┘      └──────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      Trust Anchor (TSL)                      │
+│          Publishes trusted entity lists (ETSI TS 119 612)    │
+└───────┬──────────────────┬───────────────────┬───────────────┘
+        │ trusts           │ trusts            │ trusts
+        ▼                  ▼                   ▼
+┌───────────────┐  ┌──────────────┐  ┌─────────────────────────┐
+│  Credential   │  │    Wallet    │  │ Verifier / Relying Party│
+│  Issuer       │  │   (Holder)   │  │ (e.g. Keycloak)         │
+└───────┬───────┘  └──┬───────┬───┘  └──────────┬──────────────┘
+        │  OID4VCI    │      │      OID4VP     │
+        └─────────────┘      └─────────────────┘
 
-┌───────────────────────┐  ┌─────────────────────────────────┐
+┌───────────────────────┐  ┌──────────────────────────────────┐
 │ Attestation Provider  │  │ Status Provider                  │
 │ Verifier Reg. Certs   │  │ Token Status Lists (revocation)  │
-└───────────────────────┘  └─────────────────────────────────┘
+└───────────────────────┘  └──────────────────────────────────┘
 ```
 
 <!--
@@ -349,18 +351,18 @@ This is the scheme we use in production. The verifier's TLS certificate serves d
 **Problem:** How does the verifier know the *presenter* owns the credential?
 
 ```
-Issuer                          Wallet                       Verifier
-  │                               │                            │
-  │  1. Embed holder public key   │                            │
-  │     in credential (cnf.jwk)   │                            │
-  │  ─────────────────────────►   │                            │
-  │                               │  2. Sign KB-JWT with       │
-  │                               │     holder private key     │
-  │                               │  ─────────────────────►    │
-  │                               │                            │
-  │                               │  3. Extract cnf.jwk from   │
-  │                               │     credential, verify     │
-  │                               │     KB-JWT signature       │
+Issuer                        Wallet                      Verifier
+  │                              │                            │
+  │  1. Embed holder public key  │                            │
+  │     in credential (cnf.jwk)  │                            │
+  │  ───────────────────────►    │                            │
+  │                              │  2. Sign KB-JWT with       │
+  │                              │     holder private key     │
+  │                              │  ──────────────────────►   │
+  │                              │                            │
+  │                              │  3. Extract cnf.jwk from   │
+  │                              │     credential, verify     │
+  │                              │     KB-JWT signature       │
 ```
 
 The verifier **trusts the issuer** (via trust list) → the issuer **certifies the holder's public key** (via `cnf`) → the holder **proves possession** (via KB-JWT signature).
@@ -536,10 +538,10 @@ Issuer publishes a **Token Status List** (`statuslist+jwt`):
 - DEFLATE-compressed byte array, base64url-encoded
 - Supports **1, 2, 4, or 8 bits** per credential entry
 
-| Bits | Status values |
-|------|-------------|
-| 1 | `0` = VALID, `1` = INVALID |
-| 2 | + `2` = SUSPENDED |
+| Bits | Status values                        |
+|------|--------------------------------------|
+| 1 | `0` = VALID, `1` = INVALID              |
+| 2 | + `2` = SUSPENDED                       |
 | 8 | Up to 256 application-specific statuses |
 
 <!--
@@ -577,22 +579,22 @@ The status list is a compact byte array distributed as a signed JWT. The verifie
 # Architecture Overview
 
 ```
-  User/Browser          EUDI Wallet
-       │                     │
-       ▼                     │
-  ┌─────────┐                │
-  │Keycloak │                │
-  └────┬────┘                │
-       ▼                     │
-  ┌──────────────────┐       │
-  │  OID4VP Identity │◄──────┘
-  │  Provider (SPI)  │
+  User/Browser            EUDI Wallet
+       │                       │
+       ▼                       │
+  ┌──────────┐                 │
+  │ Keycloak │                 │
+  └────┬─────┘                 │
+       ▼                       │
+  ┌──────────────────┐         │
+  │  OID4VP Identity │◄───────►│
+  │  Provider (SPI)  │         │
   └────────┬─────────┘
            ▼
-  ┌──────────────────┐    ┌──────────────┐
-  │   Credential     │───►│  Trust List   │
-  │   Verifier       │    │  Service      │
-  └──────────────────┘    └──────────────┘
+  ┌──────────────────┐    ┌────────────────┐
+  │   Credential     │───►│  Trust List    │
+  │   Verifier       │    │  Service       │
+  └──────────────────┘    └────────────────┘
 ```
 
 <!--
