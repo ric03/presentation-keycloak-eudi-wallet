@@ -449,13 +449,44 @@ Trust lists are the backbone of the EUDI trust model. Published by trust anchors
 
 ---
 
+# SD-JWT Disclosure Structure
+
+## Object property: 3-element array `[salt, name, value]`
+
+```
+Disclosure:    WyJfc0kiLCAiZ2l2ZW5fbmFtZSIsICJFcmlrYSJd
+Decoded:       ["_sI", "given_name", "Erika"]
+SHA-256:       base64url(SHA-256("WyJfc0ki...")) → "kL2g...9xYU"  ← matches _sd entry
+```
+
+Credential payload:
+```json
+{ "_sd": ["H0wL...dGFi", "kL2g...9xYU"], "_sd_alg": "sha-256" }
+```
+
+## Array element: 2-element array `[salt, value]`
+
+```
+Disclosure:    WyJsa2x4RjVq...Il0
+Decoded:       ["lklxF5jMYOGiAXoy36_BZw", "DE"]
+SHA-256:       base64url(SHA-256("WyJsa2x4...")) → "nY3f...7kRw"  ← matches ... entry
+```
+
+Credential payload: `"nationalities": [{"...": "nY3f...7kRw"}]`
+
+<!--
+SD-JWT disclosures come in two forms. For object properties, each disclosure is a base64url-encoded JSON array with three elements: a random salt for privacy, the claim name, and the claim value. These are referenced by their SHA-256 digest in the _sd array. For array elements, disclosures have only two elements — salt and value — and are referenced using the three-dot notation inside arrays. The salt ensures that even identical claim values produce different digests, preventing correlation.
+-->
+
+---
+
 # Disclosure Verification
 
 ## SD-JWT: `_sd` digest matching
 - Each disclosure: `base64url([salt, claim_name, claim_value])`
 - Verifier computes `base64url(SHA-256(disclosure))` for each
 - Checks computed digest exists in credential's `_sd` array
-- Reject if claim name is `_sd`, `...`, or already disclosed
+- Reject on: duplicate digests, reserved names (`_sd`, `...`), malformed arrays
 
 ## mDOC: `ValueDigests`
 - MSO contains per-element digests grouped by namespace
