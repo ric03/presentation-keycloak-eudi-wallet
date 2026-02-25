@@ -54,8 +54,13 @@ Welcome everyone. Today we'll dive deep into how we integrated the EU Digital Id
 # About Us
 
 **Dominik Schlosser** — Freelance Software Architect
+- Years of experience in the IAM space
+- Migrated a large German authority's online IAM to Keycloak
+- Created the Keycloak Cassandra extension, Infinispan removal & file-based storage
 
 **Tom Schneider** — Software Developer at Bundesagentur für Arbeit
+- Online IAM development
+- Platform engineer for a Kubernetes-based private cloud
 
 ---
 
@@ -874,8 +879,8 @@ Let me summarize what we've built. It's a complete OID4VP integration that handl
 
 **Where we are:**
 - Testing in the **German EUDI Wallet Sandbox** with **Bundesdruckerei** reference wallet
-- Validated against the **EU interoperability test suite**
-- Used in a real project for a German public services customer
+- Validated against the **OIDF conformance tests**
+- Preparing to use in a project for a German public services customer
 
 **Where we're going:**
 - **Release** the Keycloak extension on GitHub as open source
