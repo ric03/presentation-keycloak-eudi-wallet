@@ -110,7 +110,7 @@ eIDAS 2.0 mandates that every EU member state must offer a digital identity wall
 
 # Credential Types
 
-**IETF `SD-JWT`** — Selective Disclosure for JWTs
+**`SD-JWT`** — Selective Disclosure for JWTs (RFC 9901)
 - JSON-based, selective disclosure via salted hashes
 
 **ISO `mDOC`** — Mobile Document
@@ -389,14 +389,14 @@ HAIP narrows down OID4VP options for EU-wide interoperability:
 |------|-----------------|
 | **Signatures** | ES256 (ECDSA with P-256) only |
 | **Response mode** | `direct_post.jwt` or `dc_api.jwt` (encrypted) |
-| **Encryption** | ECDH-ES with P-256, A256GCM |
+| **Encryption** | ECDH-ES with P-256, A128GCM / A256GCM |
 | **Credential formats** | SD-JWT VC (`dc+sd-jwt`) and mDOC |
 | **Query language** | DCQL |
 
 Legacy `direct_post` (unencrypted) exists but is **not HAIP-compliant**.
 
 <!--
-HAIP is critical because the OID4VP spec itself is very flexible — too flexible for a real ecosystem. Without HAIP, every implementer could make different choices about algorithms, response modes, and formats. HAIP narrows this down to a specific set that everyone must support. Think of it as the EU's "this is how we do it" profile. The .jwt response modes wrap everything in a JWE. Notably, A128CBC-HS256 is NOT required — only GCM modes.
+HAIP is critical because the OID4VP spec itself is very flexible — too flexible for a real ecosystem. Without HAIP, every implementer could make different choices about algorithms, response modes, and formats. HAIP narrows this down to a specific set that everyone must support. Think of it as the EU's "this is how we do it" profile. The .jwt response modes wrap everything in a JWE. Verifiers must support both A128GCM and A256GCM, wallets must support at least one — with A256GCM preferred.
 -->
 
 ---
@@ -449,37 +449,6 @@ Trust lists are the backbone of the EUDI trust model. Published by trust anchors
 
 ---
 
-# SD-JWT Disclosure Structure
-
-## Object property: 3-element array `[salt, name, value]`
-
-```
-Disclosure:    WyJfc0kiLCAiZ2l2ZW5fbmFtZSIsICJFcmlrYSJd
-Decoded:       ["_sI", "given_name", "Erika"]
-SHA-256:       base64url(SHA-256("WyJfc0ki...")) → "kL2g...9xYU"  ← matches _sd entry
-```
-
-Credential payload:
-```json
-{ "_sd": ["H0wL...dGFi", "kL2g...9xYU"], "_sd_alg": "sha-256" }
-```
-
-## Array element: 2-element array `[salt, value]`
-
-```
-Disclosure:    WyJsa2x4RjVq...Il0
-Decoded:       ["lklxF5jMYOGiAXoy36_BZw", "DE"]
-SHA-256:       base64url(SHA-256("WyJsa2x4...")) → "nY3f...7kRw"  ← matches ... entry
-```
-
-Credential payload: `"nationalities": [{"...": "nY3f...7kRw"}]`
-
-<!--
-SD-JWT disclosures come in two forms. For object properties, each disclosure is a base64url-encoded JSON array with three elements: a random salt for privacy, the claim name, and the claim value. These are referenced by their SHA-256 digest in the _sd array. For array elements, disclosures have only two elements — salt and value — and are referenced using the three-dot notation inside arrays. The salt ensures that even identical claim values produce different digests, preventing correlation.
--->
-
----
-
 # Disclosure Verification
 
 ## SD-JWT: `_sd` digest matching
@@ -495,6 +464,48 @@ SD-JWT disclosures come in two forms. For object properties, each disclosure is 
 
 <!--
 For SD-JWTs, the verifier takes each received disclosure, computes its SHA-256 hash, and looks it up in the _sd array of the issuer-signed credential. This proves each disclosed claim was part of the original credential without revealing undisclosed claims. For mDOC, the Mobile Security Object contains per-element digests — the verifier recomputes them from the received IssuerSignedItems and checks they match.
+-->
+
+---
+
+# SD-JWT Disclosures — Object Properties
+
+3-element array: `[salt, claim_name, claim_value]`
+
+```
+Disclosure:    WyJfc0kiLCAiZ2l2ZW5fbmFtZSIsICJFcmlrYSJd
+Decoded:       ["_sI", "given_name", "Erika"]
+SHA-256:       base64url(SHA-256("WyJfc0ki...")) → "kL2g...9xYU"  ← matches _sd entry
+```
+
+Credential payload:
+```json
+{ "_sd": ["H0wL...dGFi", "kL2g...9xYU"], "_sd_alg": "sha-256" }
+```
+
+<!--
+For object properties, each disclosure is a base64url-encoded JSON array with three elements: a random salt for privacy, the claim name, and the claim value. The verifier hashes the raw base64url string — not the decoded content — and checks the resulting digest against the _sd array. The salt ensures that even identical claim values produce different digests, preventing correlation.
+-->
+
+---
+
+# SD-JWT Disclosures — Array Elements
+
+2-element array: `[salt, value]`
+
+```
+Disclosure:    WyJsa2x4RjVq...Il0
+Decoded:       ["lklxF5jMYOGiAXoy36_BZw", "DE"]
+SHA-256:       base64url(SHA-256("WyJsa2x4...")) → "nY3f...7kRw"  ← matches ... entry
+```
+
+Credential payload:
+```json
+{ "nationalities": [{"...": "nY3f...7kRw"}] }
+```
+
+<!--
+For array elements, disclosures have only two elements — salt and value — since the position in the array replaces the need for a claim name. These are referenced using the three-dot notation inside JSON arrays in the credential payload. The verification process is the same: hash the base64url-encoded disclosure and match the digest.
 -->
 
 ---
@@ -840,7 +851,7 @@ To answer the title question: yes, it really is a match made in heaven. Every OI
 - Support for **SD-JWT** and **mDOC** credentials
 - Three authentication flows: **DC API**, **same-device**, **cross-device**
 - **DCQL auto-generation** from IdP mappers
-- **HAIP-compliant**: ES256, ECDH-ES + A256GCM, trust lists
+- **HAIP 1.0 compliant**: ES256, ECDH-ES + A128GCM/A256GCM, trust lists
 - Solved **German PID** linking with supplementary credentials
 
 <!--
