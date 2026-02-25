@@ -126,10 +126,10 @@ eIDAS 2.0 mandates that every EU member state must offer a digital identity wall
 
 ![bg fit right:57%](assets/sdjwt-example.png)
 
-<!-- footer: "Try it yourself: https://sdjwt.co" -->
+<!-- footer: "Try it yourself: https://sdjwt.co | Local debugging: https://github.com/dominikschlosser/ssi-debugger" -->
 
 <!--
-We support both formats in our implementation, but SD-JWT is the primary format in the German ecosystem. mDOC is mainly used for the mobile driving license. You can explore SD-JWTs interactively at sdjwt.co — it's a great debugger for understanding the format.
+We support both formats in our implementation, but SD-JWT is the primary format in the German ecosystem. mDOC is mainly used for the mobile driving license. You can explore SD-JWTs interactively at sdjwt.co. For local debugging of both SD-JWTs and mDOCs, check out ssi-debugger on GitHub.
 -->
 
 ---
