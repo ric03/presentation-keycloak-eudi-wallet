@@ -26,6 +26,9 @@ style: |
   table {
     font-size: 0.8em;
   }
+  a {
+    color: #1a5fb4;
+  }
   .columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -118,11 +121,15 @@ eIDAS 2.0 mandates that every EU member state must offer a digital identity wall
 
 ![bg fit right:57%](assets/sdjwt-example.png)
 
+<!-- footer: "Try it yourself: https://sdjwt.co" -->
+
 <!--
-We support both formats in our implementation, but SD-JWT is the primary format in the German ecosystem. mDOC is mainly used for the mobile driving license.
+We support both formats in our implementation, but SD-JWT is the primary format in the German ecosystem. mDOC is mainly used for the mobile driving license. You can explore SD-JWTs interactively at sdjwt.co — it's a great debugger for understanding the format.
 -->
 
 ---
+
+<!-- footer: "" -->
 
 # EUDI Ecosystem — Roles & Interactions
 
@@ -381,6 +388,27 @@ Registration certificates are the verifier equivalent of trust lists for issuers
 
 ---
 
+# Holder Binding & Request Binding
+
+Two things a verifier must prove about a presentation:
+
+| | **Holder Binding** | **Request Binding** |
+|---|---|---|
+| **Question** | Is the presenter the credential owner? | Is this response for *my* request? |
+| **SD-JWT** | KB-JWT signed with `cnf.jwk` key | KB-JWT contains `aud`, `nonce`, `sd_hash` |
+| **mDOC** | `DeviceAuth` signed with device key | `SessionTranscript` (deterministic CBOR) |
+
+**SD-JWT** combines both in a single **KB-JWT**.
+**mDOC** separates them — `DeviceAuth` for holder binding, `SessionTranscript` for request binding.
+
+The session transcript is computed independently by both sides from protocol state (`nonce`, `client_id`, `response_uri`) — no shared secret needed.
+
+<!--
+Every credential presentation must prove two things. First, holder binding: the person presenting the credential is actually the person it was issued to. Second, request binding: the response is tied to a specific verifier request, preventing replay attacks. SD-JWT elegantly combines both in a single Key Binding JWT — the signature proves holder binding, while the aud, nonce, and sd_hash fields provide request binding. mDOC takes a different approach and separates these concerns. DeviceAuth is signed with the device key embedded in the MSO to prove holder binding. The session transcript is a deterministic CBOR structure that both the wallet and verifier compute independently from protocol state to provide request binding.
+-->
+
+---
+
 # Key Binding JWTs — The Chain of Trust
 
 **Problem:** How does the verifier know the *presenter* owns the credential?
@@ -495,9 +523,9 @@ For SD-JWTs, the verifier takes each received disclosure, computes its SHA-256 h
 
 ---
 
-# SD-JWT Disclosures — Object Properties
+# SD-JWT Disclosures
 
-3-element array: `[salt, claim_name, claim_value]`
+**Object properties** — 3-element array: `[salt, claim_name, claim_value]`
 
 ```
 Disclosure:    WyJfc0kiLCAiZ2l2ZW5fbmFtZSIsICJFcmlrYSJd
@@ -510,49 +538,11 @@ Credential payload:
 { "_sd": ["H0wL...dGFi", "kL2g...9xYU"], "_sd_alg": "sha-256" }
 ```
 
-<!--
-For object properties, each disclosure is a base64url-encoded JSON array with three elements: a random salt for privacy, the claim name, and the claim value. The verifier hashes the raw base64url string — not the decoded content — and checks the resulting digest against the _sd array. The salt ensures that even identical claim values produce different digests, preventing correlation.
--->
-
----
-
-# SD-JWT Disclosures — Array Elements
-
-2-element array: `[salt, value]`
-
-```
-Disclosure:    WyJsa2x4RjVq...Il0
-Decoded:       ["lklxF5jMYOGiAXoy36_BZw", "DE"]
-SHA-256:       base64url(SHA-256("WyJsa2x4...")) → "nY3f...7kRw"  ← matches ... entry
-```
-
-Credential payload:
-```json
-{ "nationalities": [{"...": "nY3f...7kRw"}] }
-```
+**Array elements** — 2-element array: `[salt, value]` (no claim name needed)
+Referenced via `{"...": "<digest>"}` entries in the credential's JSON arrays.
 
 <!--
-For array elements, disclosures have only two elements — salt and value — since the position in the array replaces the need for a claim name. These are referenced using the three-dot notation inside JSON arrays in the credential payload. The verification process is the same: hash the base64url-encoded disclosure and match the digest.
--->
-
----
-
-# mDOC Session Transcript
-
-**Key difference from SD-JWT:**
-- **KB-JWT** combines two roles: **holder binding** (`cnf.jwk` signature) + **request binding** (`sd_hash`, `aud`, `nonce`)
-- **mDOC** separates them: **`DeviceAuth`** = holder binding, **`SessionTranscript`** = request binding
-
-The **session transcript** is a deterministic CBOR structure both sides compute independently:
-
-- `DeviceEngagement` — holder's ephemeral key + transfer method
-- `EReaderKey` — verifier's ephemeral public key
-- `Handover` — OID4VP: hash of `nonce` + `client_id` + `response_uri` + `mdoc_nonce`
-
-Wallet signs `DeviceAuth` over `SessionTranscript` + disclosed elements → verifier rebuilds the same transcript and verifies.
-
-<!--
-In SD-JWT, the Key Binding JWT does double duty: the signature proves the presenter holds the credential's private key, while sd_hash, aud, and nonce bind the response to the specific request. In mDOC, these concerns are separated. DeviceAuth — signed with the device key embedded in the MSO — proves holder binding. The session transcript provides request binding by deterministically encoding the protocol exchange. Both sides independently compute the same transcript from protocol state, so there's no shared secret. The handover component is protocol-specific: for OID4VP it includes hashes of the nonce, client_id, response_uri, and mdoc_nonce.
+Each disclosure is a base64url-encoded JSON array. For object properties it has three elements: salt, claim name, and value. For array elements, only two: salt and value — the position in the array replaces the need for a name. The verifier hashes the raw base64url string and checks the digest against the _sd array or the three-dot entries. The salt ensures identical values produce different digests, preventing correlation.
 -->
 
 ---
@@ -900,9 +890,29 @@ We're testing against real wallet implementations in the German sandbox, and it'
 
 # Thank You!
 
-Slides available at:
-**https://ric03.github.io/presentation-keycloak-eudi-wallet/**
+<div class="columns">
+<div>
+
+**Dominik Schlosser**
+![w:150](assets/dominik-placeholder.png)
+
+**Tom Schneider**
+![w:150](assets/tom-placeholder.png)
+
+</div>
+<div>
+
+**Slides:**
+![w:200](assets/slides-qr.png)
+https://ric03.github.io/presentation-keycloak-eudi-wallet/
+
+**Keycloak OID4VP Extension:**
+<!-- TODO: replace with actual GitHub URL -->
+https://github.com/TODO/keycloak-oid4vp
+
+</div>
+</div>
 
 <!--
-Thank you for your attention. I'm happy to take questions — especially about the technical details of the OID4VP integration or the German PID workaround.
+Thank you for your attention. You can find the slides via the QR code. The Keycloak OID4VP extension will be available on GitHub — we're happy to take questions about the technical details of the integration or the German PID workaround.
 -->
