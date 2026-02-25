@@ -153,13 +153,14 @@ We support both formats in our implementation, but SD-JWT is the primary format 
         └─────────────┘       └─────────────────┘
 
 ┌───────────────────────┐  ┌──────────────────────────────────┐
-│ Attestation Provider  │  │ Status Provider                  │
-│ Verifier Reg. Certs   │  │ Token Status Lists (revocation)  │
+│ Attestation Providers │  │ Status Provider                  │
+│ (Registrars, Wallet   │  │ Token Status Lists (revocation)  │
+│  Provider, Access CA) │  │                                  │
 └───────────────────────┘  └──────────────────────────────────┘
 ```
 
 <!--
-This is the big picture. The Trust Anchor publishes trust lists so wallets can verify that issuers are legitimate, and verifiers can prove their identity. The Credential Issuer pushes credentials to the wallet via OID4VCI. The Verifier requests presentations from the wallet via OID4VP. The Attestation Provider issues registration certificates so verifiers can authenticate themselves. The Status Provider hosts revocation lists. Keycloak sits on the verifier side in our setup.
+This is the big picture. The Trust Anchor publishes trust lists so wallets can verify that issuers are legitimate, and verifiers can prove their identity. The Credential Issuer pushes credentials to the wallet via OID4VCI. The Verifier requests presentations from the wallet via OID4VP. Attestation Providers serve different roles — RP Registrars issue registration certificates for verifiers, the Wallet Provider issues wallet instance attestations, and Access CAs issue certificates to issuers and verifiers. The Status Provider hosts revocation lists. Keycloak sits on the verifier side in our setup.
 -->
 
 ---
