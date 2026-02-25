@@ -86,39 +86,27 @@ We'll spend most of our time on OID4VP and the Keycloak integration since that's
 
 ---
 
-# EU Digital Identity — Origins
+# EU Digital Identity — Origins & Specifications
 
-- **eIDAS** — **e**lectronic **ID**entification, **A**uthentication and trust **S**ervices
-  - 2014: eIDAS 1.0
-  - 2024: eIDAS 2.0
-- Independent sovereign solution for Europe
-- Architecture and Reference Framework (ARF)
+- **eIDAS 2.0** (2024) — mandates digital identity wallets for every EU member state
+- Independent sovereign solution, defined by the Architecture Reference Framework (ARF)
+
+Two core protocols (built on OAuth 2.0):
+
+| Spec | Purpose |
+|------|---------|
+| **OpenID4VCI** | **V**erifiable **C**redential **I**ssuance — getting credentials INTO the wallet |
+| **OpenID4VP** | **V**erifiable **P**resentations — getting credentials OUT for verification |
 
 <!-- footer: https://github.com/eu-digital-identity-wallet -->
 
 <!--
-eIDAS 2.0 mandates that every EU member state must offer a digital identity wallet to its citizens. The ARF defines how everything fits together.
+eIDAS 2.0 mandates that every EU member state must offer a digital identity wallet to its citizens. The ARF defines how everything fits together. The two core protocols are OID4VCI for issuance and OID4VP for verification — both built on top of OAuth 2.0.
 -->
 
 ---
-
-# Specifications
-
-## `OpenID4VCI`
-- OpenID for **V**erifiable **C**redential **I**ssuance
-- Protocol for issuing credentials to wallets
-
-## `OpenID4VP`
-- OpenID for **V**erifiable **P**resentations
-- Protocol for requesting and verifying credentials
 
 <!-- footer: "" -->
-
-<!--
-These two protocols are the backbone. VCI is about getting credentials INTO the wallet, VP is about getting them OUT for verification. Both build on top of OAuth 2.0.
--->
-
----
 
 # Credential Types
 
@@ -300,27 +288,14 @@ These two specs are companions. SIOPv2 — Self-Issued OpenID Provider version 2
 
 # DCQL — Digital Credentials Query Language
 
-- Replaced the older `presentation_definition` format
-- JSON-based query describing **what** the verifier needs
-- Supports multiple credential types and formats
-- Wallet decides **which** credentials satisfy the query
-
-<!--
-DCQL is the new way to express what credentials and claims you want from the wallet. It's much cleaner than the old presentation_definition format.
--->
-
----
-
-# DCQL — Example Query
+JSON-based query replacing `presentation_definition` — describes **what** the verifier needs:
 
 ```json
 {
   "credentials": [{
     "id": "pid_credential",
     "format": "dc+sd-jwt",
-    "meta": {
-      "vct_values": ["eu.europa.ec.eudi.pid.1"]
-    },
+    "meta": { "vct_values": ["eu.europa.ec.eudi.pid.1"] },
     "claims": [
       { "path": ["family_name"] },
       { "path": ["given_name"] },
@@ -330,8 +305,10 @@ DCQL is the new way to express what credentials and claims you want from the wal
 }
 ```
 
+Wallet decides **which** credentials satisfy the query.
+
 <!--
-This query asks for a PID credential in SD-JWT format, specifically requesting family name, given name, and birthdate. The wallet will only disclose these specific claims thanks to selective disclosure.
+DCQL is the new way to express what credentials and claims you want from the wallet. This query asks for a PID credential in SD-JWT format, specifically requesting family name, given name, and birthdate. The wallet will only disclose these specific claims thanks to selective disclosure. It's much cleaner than the old presentation_definition format.
 -->
 
 ---
@@ -396,64 +373,30 @@ Issuer                        Wallet                      Verifier
   │                              │     KB-JWT signature       │
 ```
 
-The verifier **trusts the issuer** (via trust list) → the issuer **certifies the holder's public key** (via `cnf`) → the holder **proves possession** (via KB-JWT signature).
+**KB-JWT:** `aud`, `nonce`, `iat`, `sd_hash` (binds to credential + disclosed claims). **Verify:** extract `cnf.jwk` → check signature → check `sd_hash`, `aud`, `nonce`, `iat`
 
 <!--
-This is the chain of trust for key binding. During issuance, the issuer embeds the holder's public key in the credential's cnf claim. When presenting, the wallet signs a Key Binding JWT with the corresponding private key. The verifier extracts the public key from the credential — which it trusts because the issuer is on the trust list — and uses it to verify the KB-JWT signature. Without this, anyone who copies a credential could present it.
+This is the chain of trust for key binding. The issuer embeds the holder's public key in the credential's cnf claim. When presenting, the wallet signs a Key Binding JWT. The verifier extracts the public key from the credential — trusted via the trust list — and verifies the KB-JWT signature. The sd_hash is computed over the entire SD-JWT presentation string, binding the proof to both the credential and the exact set of disclosed claims. Without this, anyone who copies a credential could present it.
 -->
 
 ---
 
-# KB-JWT — Structure & Verification
+# HAIP — Response Modes & Interoperability Profile
 
-```
-Header: { "typ": "kb+jwt", "alg": "ES256" }
-Payload: {
-  "aud": "x509_san_dns:verifier.example.com",
-  "iat": 1708700000,
-  "nonce": "abc123",
-  "sd_hash": "base64url(sha256(<JWT>~<disc1>~<disc2>~...~))"
-}
-Signed with: holder's private key (matching cnf.jwk in credential)
-```
-
-**Verifier validation:** extract `cnf.jwk` from credential → verify KB-JWT signature → check `sd_hash` matches full presentation → check `aud`, `nonce`, `iat` (max 5 min)
-
-<!--
-The sd_hash is computed over the ENTIRE SD-JWT presentation string — the issuer-signed JWT, a tilde, then all selected disclosures each followed by a tilde. This binds the KB-JWT to both the credential and the exact set of disclosed claims. The critical insight is that the verifier gets the holder's public key FROM the credential itself — which they trust because they've verified the issuer's signature against the trust list.
--->
-
----
-
-# Response Modes
-
-| Mode | Transport | Encryption | Use case |
-|------|-----------|-----------|----------|
-| `direct_post` | HTTP POST | No | Legacy / testing |
-| `direct_post.jwt` | HTTP POST | JWE | Same-device redirect |
-| `dc_api.jwt` | DC API callback | JWE | DC API (encrypted) |
-
-<!--
-These are the three response modes defined in OID4VP. The .jwt variants wrap the response in a JWE. HAIP mandates the encrypted variants — direct_post.jwt for redirect flows and dc_api.jwt for the Digital Credentials API.
--->
-
----
-
-# HAIP — High Assurance Interoperability Profile
-
-HAIP is the EU's profile for OID4VP, narrowing down options for interoperability:
+HAIP narrows down OID4VP options for EU-wide interoperability:
 
 | Area | HAIP Requirement |
 |------|-----------------|
 | **Signatures** | ES256 (ECDSA with P-256) only |
-| **Response mode** | `direct_post.jwt` or `dc_api.jwt` |
-| **Encryption alg** | ECDH-ES with P-256 |
-| **Encryption enc** | A128GCM or A256GCM (prefer A256GCM) |
+| **Response mode** | `direct_post.jwt` or `dc_api.jwt` (encrypted) |
+| **Encryption** | ECDH-ES with P-256, A256GCM |
 | **Credential formats** | SD-JWT VC (`dc+sd-jwt`) and mDOC |
 | **Query language** | DCQL |
 
+Legacy `direct_post` (unencrypted) exists but is **not HAIP-compliant**.
+
 <!--
-HAIP is critical because the OID4VP spec itself is very flexible — too flexible for a real ecosystem. Without HAIP, every implementer could make different choices about algorithms, response modes, and formats. HAIP narrows this down to a specific set that everyone must support. Think of it as the EU's "this is how we do it" profile. Notably, A128CBC-HS256 is NOT required — only GCM modes.
+HAIP is critical because the OID4VP spec itself is very flexible — too flexible for a real ecosystem. Without HAIP, every implementer could make different choices about algorithms, response modes, and formats. HAIP narrows this down to a specific set that everyone must support. Think of it as the EU's "this is how we do it" profile. The .jwt response modes wrap everything in a JWE. Notably, A128CBC-HS256 is NOT required — only GCM modes.
 -->
 
 ---
@@ -471,54 +414,21 @@ sequenceDiagram
     V->>V: Decrypt with stored private key
 </div>
 
-Fresh key pair per request → forward secrecy.
+Fresh key pair per request → **forward secrecy**. Public key sent via `client_metadata.jwks`, encrypted response alg `ECDH-ES` + enc `A256GCM`.
 
 <!--
-Every authorization request gets its own ephemeral encryption key. The public half goes to the wallet, the private half stays in the server session. HAIP mandates ECDH-ES for key agreement with A256GCM for content encryption. This gives us forward secrecy — even if one key is compromised, other requests are unaffected.
--->
-
----
-
-# Encryption — Client Metadata
-
-```json
-{
-  "client_metadata": {
-    "jwks": {
-      "keys": [{
-        "kty": "EC", "crv": "P-256",
-        "alg": "ECDH-ES", "use": "enc",
-        "x": "...", "y": "..."
-      }]
-    },
-    "authorization_encrypted_response_alg": "ECDH-ES",
-    "authorization_encrypted_response_enc": "A256GCM"
-  }
-}
-```
-
-<!--
-This is what the client_metadata looks like in the request object. The wallet uses this ephemeral public key to encrypt its response using ECDH-ES key agreement with AES-256-GCM content encryption. HAIP requires support for both A128GCM and A256GCM, but recommends preferring A256GCM.
+Every authorization request gets its own ephemeral encryption key. The public half goes to the wallet in client_metadata, the private half stays in the server session. HAIP mandates ECDH-ES for key agreement with A256GCM for content encryption. This gives us forward secrecy — even if one key is compromised, other requests are unaffected.
 -->
 
 ---
 
 # Credential Verification — ETSI Trust Lists
 
-How do we trust that a credential was issued by a legitimate issuer?
+How do we trust a credential? Fetch → Verify → Lookup → Validate:
 
-1. Verifier fetches trust list from a **Trust Anchor** URL
-2. Trust list is a **signed JWT** — verify the anchor's signature
-3. Look up the issuer in the list → get their **X.509 certificate**
-4. Verify the credential's signature against that certificate
-
-<!--
-Trust lists are the backbone of the EUDI trust model. They're published by trust anchors — typically national authorities — and list all authorized issuers with their certificates. Our verifier downloads these lists and uses them to verify credential signatures.
--->
-
----
-
-# Trust List — Example Response (simplified)
+1. Fetch trust list (signed JWT) from **Trust Anchor** URL
+2. Look up issuer → get their **X.509 certificate**
+3. Verify the credential's signature against that certificate
 
 ```json
 { "trusted_entities": [{
@@ -528,18 +438,13 @@ Trust lists are the backbone of the EUDI trust model. They're published by trust
       "type": "pid-issuance", "status": "granted",
       "x5c": ["MIIBjTCCATOgAwIBAgIUQ8..."]
     }]
-  }, {
-    "entity_id": "https://mdl-issuer.kraftfahrtbundesamt.de",
-    "entity_name": "KBA mDL Issuer",
-    "trust_services": [{
-      "type": "mdl-issuance", "status": "granted",
-      "x5c": ["MIICeTCCAiCgAwIBAgIUA2..."]
-    }]
 }] }
 ```
 
+Only a **single root certificate** needs to be trusted — the trust anchor's.
+
 <!--
-This is a simplified view of what a trust list contains. Each entity has an ID, a name, and one or more trust services with their X.509 certificates. When we receive a credential, we look up the issuer's entity_id in the trust list, extract the certificate, and verify the credential's signature. The trust list itself is signed by the trust anchor, so we need to trust only a single root certificate.
+Trust lists are the backbone of the EUDI trust model. Published by trust anchors — typically national authorities — they list all authorized issuers with their X.509 certificates. When we receive a credential, we look up the issuer's entity_id in the trust list, extract the certificate, and verify the credential's signature. The trust list itself is signed by the trust anchor.
 -->
 
 ---
@@ -564,38 +469,21 @@ For SD-JWTs, the sd_hash binds the key binding proof to the specific combination
 
 # Credential Revocation — Token Status Lists
 
-Issuer publishes a **Token Status List** (`statuslist+jwt`):
-- DEFLATE-compressed byte array, base64url-encoded
-- Supports **1, 2, 4, or 8 bits** per credential entry
+Issuer publishes a **Token Status List** (`statuslist+jwt`) — DEFLATE-compressed byte array, multi-bit entries:
 
-| Bits | Status values                        |
-|------|--------------------------------------|
-| 1 | `0` = VALID, `1` = INVALID              |
-| 2 | + `2` = SUSPENDED                       |
-| 8 | Up to 256 application-specific statuses |
+| Bits | Status values | Example |
+|------|--------------|---------|
+| 1 | VALID / INVALID | Simple revocation |
+| 2 | + SUSPENDED | Most common |
+| 8 | Up to 256 statuses | Application-specific |
 
-<!--
-The Token Status List spec supports multi-bit entries so you can distinguish between revoked and suspended. The list is DEFLATE-compressed to keep it small even with millions of entries.
--->
+**Verification:** Credential contains `{ "status_list": { "idx": 42, "uri": "..." } }`
+→ Fetch list → decompress → read bits at index 42
 
----
-
-# Status List — How Verification Works
-
-**1.** Credential contains: `{ "status_list": { "idx": 42, "uri": "https://..." } }`
-
-**2.** Verifier fetches the status list JWT from that URI:
-```json
-{ "status_list": { "bits": 2, "lst": "eNrbuRgAAhcBXQ" } }
-```
-
-**3.** Decode `lst` → base64url → DEFLATE-decompress → byte array
-**4.** Read 2 bits at index 42 → `0x00` VALID, `0x01` INVALID, `0x02` SUSPENDED
-
-Privacy-preserving: verifier fetches **entire list**, issuer can't tell which credential is checked.
+**Privacy-preserving:** verifier fetches **entire list**, issuer can't tell which credential is checked.
 
 <!--
-The status list is a compact byte array distributed as a signed JWT. The verifier fetches it, verifies the JWT signature, base64url-decodes and DEFLATE-decompresses the lst field, then reads the bits at the credential's index. Because the entire list is fetched, the issuer has no way to know which specific credential is being checked — this is a deliberate privacy feature. The bits-per-entry field tells the verifier how many bits to read per credential entry.
+The Token Status List is a compact byte array distributed as a signed JWT. The verifier fetches the whole list, decompresses it, and reads the bits at the credential's index. Multi-bit entries let you distinguish between revoked and suspended. Because the entire list is fetched, the issuer has no way to know which specific credential is being checked — this is a deliberate privacy feature.
 -->
 
 ---
@@ -659,27 +547,7 @@ The identity provider SPI is the natural extension point in Keycloak for adding 
 
 # Auto-Generating DCQL from Mappers
 
-Instead of writing DCQL queries by hand:
-
-1. Configure **IdP mappers** in Keycloak Admin UI
-2. Each mapper specifies: format, credential type, claim path
-3. `DcqlQueryBuilder` aggregates all mappers into a DCQL query
-
-```java
-DcqlQueryBuilder.fromMapperSpecs(objectMapper,
-    credentialTypes,   // aggregated from mappers
-    allRequired,       // require all credentials?
-    purpose            // human-readable purpose
-).build();
-```
-
-<!--
-This is one of the nicest features of our implementation. Admins don't need to understand DCQL — they just configure mappers like they would for any other IdP, and the system generates the correct query automatically. If you need full control, you can still provide an explicit DCQL query.
--->
-
----
-
-# Auto-Generated DCQL — How It Works
+Configure **IdP mappers** in Admin UI — `DcqlQueryBuilder` generates the query automatically:
 
 ```
 Mapper 1: SD-JWT / eu.europa.ec.eudi.pid.1 / family_name
@@ -697,8 +565,10 @@ Mapper 3: SD-JWT / eu.europa.ec.eudi.pid.1 / birthdate
 }] }
 ```
 
+Admins don't need to understand DCQL — configure mappers like any other IdP.
+
 <!--
-The builder groups mappers by format and credential type, deduplicates, and produces a clean DCQL query. For mDOC credentials, it also handles the namespace-qualified claim paths correctly.
+This is one of the nicest features of our implementation. The builder groups mappers by format and credential type, deduplicates, and produces a clean DCQL query. For mDOC credentials, it also handles the namespace-qualified claim paths. If you need full control, you can still provide an explicit DCQL query.
 -->
 
 ---
@@ -726,108 +596,57 @@ The Digital Credentials API is the future of wallet interaction on the web. The 
 
 ---
 
-# W3C Digital Credentials API — Browser Support
+# DC API — Browser Support & Pitfalls
 
 | Browser | Version | Status |
 |---------|---------|--------|
-| **Chrome** | 141+ (Sept 2025) | Shipped, enabled by default |
-| **Safari** | 26+ (Sept 2025) | Shipped, **mdoc only** |
+| **Chrome** | 141+ (Sept 2025) | Shipped — `openid4vp-v1-signed` / `unsigned` |
+| **Safari** | 26+ (Sept 2025) | `org-iso-mdoc` only — **no OpenID4VP!** |
 | **Firefox** | — | Negative standards position |
 
-- Chrome 128 was an **origin trial** only — not shipped
-- Android: native Credential Manager integration
-- iOS 26+: native via `IdentityDocumentServices` framework
-- Cross-device: QR/BLE handoff to mobile wallet
-
-<!--
-Chrome shipped the DC API enabled by default in version 141, not 128 as some sources claim. Chrome 128 was just an origin trial. Safari supports the API but only for the mdoc protocol — it does not support OpenID4VP at all. And Firefox has taken a negative standards position, citing privacy concerns. This fragmentation is a real challenge for relying parties.
--->
-
----
-
-# DC API — Pitfalls and Considerations
-
-**Protocol fragmentation:**
-- Chrome: `openid4vp-v1-signed` and `openid4vp-v1-unsigned`
-- Safari: `org-iso-mdoc` only — **no OpenID4VP support**
-- Must implement dual protocols to support both browsers
-
-**Practical issues:**
+**Key pitfalls:**
+- **Protocol fragmentation** — must implement dual protocols for Chrome + Safari
+- API changed: `navigator.identity.get()` → `navigator.credentials.get()`, `providers` → `requests`
+- Trust verification is **your responsibility** — the browser doesn't verify issuers
 - Feature detection: `typeof DigitalCredential !== "undefined"`
-- API changed: `navigator.identity.get()` → `navigator.credentials.get()`
-  and `providers` → `requests`, `request` → `data`
-- Trust verification is **your responsibility** — the API doesn't verify issuers
 
 <!--
-The biggest pitfall is Safari's lack of OpenID4VP support. If your users might be on Safari, you need to implement the ISO mdoc protocol as well, which is a completely different data format and verification model. The API surface also changed significantly during development, so older tutorials may show outdated syntax. And importantly, the browser doesn't verify trust — you still need your own trust list validation.
+Chrome shipped the DC API in version 141, not 128 which was just an origin trial. Safari supports the API but only for mdoc — no OpenID4VP at all. Firefox has a negative standards position. This fragmentation is a real challenge. If your users might be on Safari, you need to implement the ISO mdoc protocol as well. And importantly, the browser doesn't verify trust — you still need your own trust list validation.
 -->
 
 ---
 
-# DC API — Fallback Strategy
+# Fallback: Same-Device & Cross-Device Flows
 
-Our login page supports all three flows:
+Our login page supports all three flows, each toggleable in IdP config:
 
 1. **DC API** — try first if `DigitalCredential` available
 2. **Same-device redirect** — fallback on mobile
 3. **Cross-device QR code** — fallback on desktop
 
-Each flow is independently toggleable in the IdP config.
-
-<!--
-We don't rely on any single flow. The login page detects browser capabilities and presents the appropriate option. DC API is preferred when available because it's the smoothest UX, but same-device redirect and QR code are always there as fallbacks. This is important because DC API coverage is still limited.
--->
-
----
-
-# Client-Side: QR Code & Same-Device
-
-**Same-device redirect:**
 ```
-openid4vp://?client_id=x509_san_dns:example.com&request_uri=https://example.com/request/abc123
+openid4vp://?client_id=x509_san_dns:example.com
+  &request_uri=https://example.com/request/abc123
 ```
 
-**Cross-device QR code:**
-- Same URL encoded as QR code
-- Displayed on the Keycloak login page
-- Wallet scans and processes the request
-
-Both use `direct_post.jwt` response mode.
+Same URL used as redirect (mobile) or encoded as QR code (desktop).
+Both fallbacks use `direct_post.jwt` response mode.
 
 <!--
-For browsers that don't support the DC API, we fall back to redirects on mobile or QR codes for cross-device scenarios. The login page can be configured to show one or both options.
+For browsers that don't support the DC API, we fall back to redirects on mobile or QR codes for cross-device scenarios. The login page detects browser capabilities and presents the appropriate option. DC API is preferred when available because it's the smoothest UX, but the fallbacks are always there.
 -->
 
 ---
 
 # EUDI Wallet: Registration Certificate
 
-The wallet needs to know it can trust the verifier.
-
-**Ecosystem Registration Certificate:**
-- Issued by a national Trust Anchor — JWT proving verifier is authorized
-- Contains: organization name, purpose, allowed credentials
-
-Included in the request as `verifier_info`:
-```json
-{ "verifier_info": [{ "format": "registration_cert",
-    "data": "eyJhbGciOiJFUzI1NiIsInR5cCI6InJjLXJwK2p3dCJ9..." }] }
-```
-
-<!--
-Registration certificates are the verifier equivalent of trust lists for issuers. They prove that the verifier has been formally registered and is authorized to request specific credential types. The wallet displays this information to the user before they consent to sharing.
--->
-
----
-
-# Registration Certificate — Contents
+The wallet needs to know it can trust the verifier. A **Registration Certificate** (`rc-rp+jwt`) is issued by a national Trust Anchor, proving the verifier is authorized.
 
 ```json
 {
   "typ": "rc-rp+jwt",
   "sub": "https://verifier.example.com",
   "service": "Identity Verification Service",
-  "contact": "support@verifier.example.com",
   "privacy_policy": "https://verifier.example.com/privacy",
   "credentials": [{
     "format": "dc+sd-jwt",
@@ -838,8 +657,10 @@ Registration certificates are the verifier equivalent of trust lists for issuers
 }
 ```
 
+Included in the request as `verifier_info`. Wallet enforces: verifier can only request what's listed.
+
 <!--
-The registration certificate explicitly lists which credentials and claims the verifier is allowed to request. The wallet can enforce this — if a verifier asks for more than they're registered for, the wallet should reject the request.
+Registration certificates are the verifier equivalent of trust lists for issuers. They explicitly list which credentials and claims the verifier is allowed to request. The wallet displays this to the user before they consent, and can reject requests that exceed what's registered.
 -->
 
 ---
@@ -869,19 +690,7 @@ This was our biggest challenge. Unlike a passport number or social security numb
 
 # Solution: Issue Our Own Credential
 
-**Idea:** Issue a custom `login-credential` containing:
-- `user_id` — Keycloak's internal user ID
-- `linked_at` — timestamp of binding
-
-Then query **both** PID and our credential in one request.
-
-<!--
-Our solution is to issue a supplementary credential that contains the binding to a Keycloak user. This credential lives in the user's wallet alongside their PID and is presented together during login.
--->
-
----
-
-# Phase 1 — First Login (Enrollment)
+Issue a custom `login-credential` containing `user_id` + `linked_at`, query **both** PID and our credential in one request.
 
 <div class="mermaid">
 sequenceDiagram
@@ -897,7 +706,7 @@ sequenceDiagram
 </div>
 
 <!--
-On first login, the user presents their PID but we can't match it to an account. So we ask them to authenticate with their existing credentials, then issue a supplementary login credential that gets stored in their wallet.
+Our solution is to issue a supplementary credential that contains the Keycloak user ID. On first login, the user presents their PID but we can't match it to an account. So we ask them to authenticate with existing credentials, then issue a login credential that gets stored in their wallet alongside the PID.
 -->
 
 ---
@@ -975,38 +784,20 @@ This is the beauty of the credential_sets approach. Lost credential? No problem.
 
 # A Match Made in Heaven? — Yes!
 
-Keycloak already provides the foundations:
-
-- **OAuth 2.0 / OIDC core** — OID4VP and OID4VCI are built on top of these
-- **Identity Provider SPI** — natural extension point for wallet auth
-- **Broker & Federation** — credential-based identity maps to federated identity
-- **Mapper infrastructure** — claim extraction works like any other IdP
-- **Realm key management** — signing and encryption keys already managed
-- **Session management** — state, nonce, ephemeral keys fit naturally
-
-The new features integrate nicely into existing architecture.
-
-<!--
-So, to answer the title question: yes, it really is a match made in heaven. Keycloak was designed to be extensible, and the verifiable credentials world is built on top of OAuth and OIDC — the very protocols Keycloak already implements. The broker SPI, mappers, session management — all of it maps cleanly to what we need for wallet authentication. We didn't have to fight the framework; we extended it naturally.
--->
-
----
-
-# OID4VP Features → Implementation
-
-| OID4VP Requirement | Keycloak Implementation |
+| OID4VP Requirement | Keycloak Foundation |
 |---|---|
-| Authorization Request (JAR) | Custom Identity Provider SPI — builds signed request objects |
-| DCQL query | Auto-generated from IdP mapper configuration |
-| `direct_post.jwt` response | REST endpoint via realm resource provider |
-| Response encryption | Ephemeral keys in authentication session |
-| SD-JWT / mDOC verification | Nimbus JOSE, Authlete SD-JWT, COSE-Java — extended where needed |
-| Issuer trust validation | ETSI trust list integration, configurable per IdP |
-| DC API, same-device, cross-device | Three flows, toggleable in Admin UI |
+| Authorization Request (JAR) | **Identity Provider SPI** — natural extension point |
+| DCQL query | **Mapper infrastructure** — claim extraction like any IdP |
+| `direct_post.jwt` response | **REST endpoint** via realm resource provider |
+| Response encryption | **Session management** — ephemeral keys fit naturally |
+| SD-JWT / mDOC verification | **Realm key management** — keys already managed |
+| Issuer trust validation | **Broker & Federation** — federated identity model |
 | HAIP compliance | Single config toggle enforcing all requirements |
 
+OID4VP and OID4VCI are built on OAuth 2.0 / OIDC — the very protocols Keycloak already implements.
+
 <!--
-This slide shows how each OID4VP requirement maps to a Keycloak concept. The key point is that we're not reinventing the wheel — we're building on existing Keycloak SPIs. The Identity Provider SPI handles the protocol flow, the mapper SPI handles claim extraction, authentication sessions store ephemeral state, and the Admin UI provides configuration. If you've configured any other Keycloak Identity Provider before, this will feel very familiar.
+To answer the title question: yes, it really is a match made in heaven. Every OID4VP requirement maps cleanly to an existing Keycloak SPI. The Identity Provider SPI handles the protocol flow, the mapper SPI handles claim extraction, authentication sessions store ephemeral state, and the Admin UI provides configuration. We didn't have to fight the framework; we extended it naturally.
 -->
 
 ---
@@ -1026,28 +817,20 @@ Let me summarize what we've built. It's a complete OID4VP integration that handl
 
 ---
 
-# Current Status
+# Current Status & Next Steps
 
-- Testing in the **German EUDI Wallet Sandbox**
-- Working with the **Bundesdruckerei** reference wallet
+**Where we are:**
+- Testing in the **German EUDI Wallet Sandbox** with **Bundesdruckerei** reference wallet
 - Validated against the **EU interoperability test suite**
 - Used in a real project for a German public services customer
 
-<!--
-We're not just building this in a lab. It's being tested against real wallet implementations in the German sandbox environment, and it's being used in an actual customer project.
--->
-
----
-
-# Next Steps
-
+**Where we're going:**
 - **Release** the Keycloak extension on GitHub as open source
 - **Reach out** to Keycloak maintainers and community
 - Goal: contribute toward **integration into Keycloak Core**
-- Collaborate on standardizing the IdP SPI approach
 
 <!--
-Our ultimate goal is to make this part of Keycloak itself. The EUDI wallet is going to be mandatory across the EU, and Keycloak needs first-class support for it. We're planning to open source our implementation and work with the community to make that happen.
+We're testing against real wallet implementations in the German sandbox, and it's used in an actual customer project. Our ultimate goal is to make this part of Keycloak itself — we're planning to open source our implementation and work with the community.
 -->
 
 ---
