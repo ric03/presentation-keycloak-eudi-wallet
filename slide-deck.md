@@ -354,6 +354,33 @@ This is the scheme we use in production. The verifier's TLS certificate serves d
 
 ---
 
+# EUDI Wallet: Registration Certificate
+
+The wallet needs to know it can trust the verifier. A **Registration Certificate** (`rc-rp+jwt`) is issued by a national Trust Anchor, proving the verifier is authorized.
+
+```json
+{
+  "typ": "rc-rp+jwt",
+  "sub": "https://verifier.example.com",
+  "service": "Identity Verification Service",
+  "privacy_policy": "https://verifier.example.com/privacy",
+  "credentials": [{
+    "format": "dc+sd-jwt",
+    "vct": "eu.europa.ec.eudi.pid.1",
+    "claims": ["given_name", "family_name", "birthdate"]
+  }],
+  "public_body": false
+}
+```
+
+Included in the request as `verifier_info`. Wallet enforces: verifier can only request what's listed.
+
+<!--
+Registration certificates are the verifier equivalent of trust lists for issuers. They explicitly list which credentials and claims the verifier is allowed to request. The wallet displays this to the user before they consent, and can reject requests that exceed what's registered.
+-->
+
+---
+
 # Key Binding JWTs — The Chain of Trust
 
 **Problem:** How does the verifier know the *presenter* owns the credential?
@@ -506,6 +533,26 @@ Credential payload:
 
 <!--
 For array elements, disclosures have only two elements — salt and value — since the position in the array replaces the need for a claim name. These are referenced using the three-dot notation inside JSON arrays in the credential payload. The verification process is the same: hash the base64url-encoded disclosure and match the digest.
+-->
+
+---
+
+# mDOC Session Transcript
+
+**Key difference from SD-JWT:**
+- **KB-JWT** combines two roles: **holder binding** (`cnf.jwk` signature) + **request binding** (`sd_hash`, `aud`, `nonce`)
+- **mDOC** separates them: **`DeviceAuth`** = holder binding, **`SessionTranscript`** = request binding
+
+The **session transcript** is a deterministic CBOR structure both sides compute independently:
+
+- `DeviceEngagement` — holder's ephemeral key + transfer method
+- `EReaderKey` — verifier's ephemeral public key
+- `Handover` — OID4VP: hash of `nonce` + `client_id` + `response_uri` + `mdoc_nonce`
+
+Wallet signs `DeviceAuth` over `SessionTranscript` + disclosed elements → verifier rebuilds the same transcript and verifies.
+
+<!--
+In SD-JWT, the Key Binding JWT does double duty: the signature proves the presenter holds the credential's private key, while sd_hash, aud, and nonce bind the response to the specific request. In mDOC, these concerns are separated. DeviceAuth — signed with the device key embedded in the MSO — proves holder binding. The session transcript provides request binding by deterministically encoding the protocol exchange. Both sides independently compute the same transcript from protocol state, so there's no shared secret. The handover component is protocol-specific: for OID4VP it includes hashes of the nonce, client_id, response_uri, and mdoc_nonce.
 -->
 
 ---
@@ -677,33 +724,6 @@ Both fallbacks use `direct_post.jwt` response mode.
 
 <!--
 For browsers that don't support the DC API, we fall back to redirects on mobile or QR codes for cross-device scenarios. The login page detects browser capabilities and presents the appropriate option. DC API is preferred when available because it's the smoothest UX, but the fallbacks are always there.
--->
-
----
-
-# EUDI Wallet: Registration Certificate
-
-The wallet needs to know it can trust the verifier. A **Registration Certificate** (`rc-rp+jwt`) is issued by a national Trust Anchor, proving the verifier is authorized.
-
-```json
-{
-  "typ": "rc-rp+jwt",
-  "sub": "https://verifier.example.com",
-  "service": "Identity Verification Service",
-  "privacy_policy": "https://verifier.example.com/privacy",
-  "credentials": [{
-    "format": "dc+sd-jwt",
-    "vct": "eu.europa.ec.eudi.pid.1",
-    "claims": ["given_name", "family_name", "birthdate"]
-  }],
-  "public_body": false
-}
-```
-
-Included in the request as `verifier_info`. Wallet enforces: verifier can only request what's listed.
-
-<!--
-Registration certificates are the verifier equivalent of trust lists for issuers. They explicitly list which credentials and claims the verifier is allowed to request. The wallet displays this to the user before they consent, and can reject requests that exceed what's registered.
 -->
 
 ---
