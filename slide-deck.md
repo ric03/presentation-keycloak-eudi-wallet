@@ -451,18 +451,19 @@ Trust lists are the backbone of the EUDI trust model. Published by trust anchors
 
 # Disclosure Verification
 
-## SD-JWT: `sd_hash`
-- SHA-256 of the **full presentation string**: `<JWT>~<disc1>~...~`
-- KB-JWT's `sd_hash` must match this hash
-- Binds proof to credential **and** selected disclosures
+## SD-JWT: `_sd` digest matching
+- Each disclosure: `base64url([salt, claim_name, claim_value])`
+- Verifier computes `base64url(SHA-256(disclosure))` for each
+- Checks computed digest exists in credential's `_sd` array
+- Reject if claim name is `_sd`, `...`, or already disclosed
 
-## mDOC: `ValidityInfo`
-- MSO contains `signed`, `validFrom`, `validUntil`
-- Verifier checks all three timestamps
-- Digest verification: SHA-256 of each `IssuerSignedItem`
+## mDOC: `ValueDigests`
+- MSO contains per-element digests grouped by namespace
+- Verifier computes SHA-256 of each `IssuerSignedItem`
+- Checks computed digest matches MSO entry for that element
 
 <!--
-For SD-JWTs, the sd_hash binds the key binding proof to the specific combination of credential and disclosed claims. It hashes the issuer-signed JWT followed by each selected disclosure, separated by tildes. For mDOC, the Mobile Security Object contains per-element digests and validity timestamps.
+For SD-JWTs, the verifier takes each received disclosure, computes its SHA-256 hash, and looks it up in the _sd array of the issuer-signed credential. This proves each disclosed claim was part of the original credential without revealing undisclosed claims. For mDOC, the Mobile Security Object contains per-element digests — the verifier recomputes them from the received IssuerSignedItems and checks they match.
 -->
 
 ---
