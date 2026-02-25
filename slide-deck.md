@@ -338,7 +338,7 @@ How does the wallet know **who** is asking for credentials?
 | `verifier_attestation` | `verifier_attestation:<sub>` | Attestation JWT in request |
 
 <!--
-The client identifier prefix tells the wallet how to verify the verifier's identity. Pre-registered clients use their client_id without any prefix. For production use, you'll want x509_san_dns or verifier_attestation.
+The client identifier prefix tells the wallet how to verify the verifier's identity. Pre-registered clients use their client_id without any prefix. HAIP mandates support for both x509_san_dns and x509_hash.
 -->
 
 ---
@@ -451,6 +451,7 @@ HAIP narrows down OID4VP options for EU-wide interoperability:
 | **Signatures** | ES256 (ECDSA with P-256) only |
 | **Response mode** | `direct_post.jwt` or `dc_api.jwt` (encrypted) |
 | **Encryption** | ECDH-ES with P-256, A128GCM / A256GCM |
+| **Client ID schemes** | `x509_san_dns` and `x509_hash` |
 | **Credential formats** | SD-JWT VC (`dc+sd-jwt`) and mDOC |
 | **Query language** | DCQL |
 
