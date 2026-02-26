@@ -856,8 +856,12 @@ This is the beauty of the credential_sets approach. Lost credential? No problem.
 
 OID4VP and OID4VCI are built on OAuth 2.0 / OIDC — the very protocols Keycloak already implements.
 
+**One caveat:** The IdP SPI assumes the external IdP response arrives via browser redirect — carrying session cookies. But the wallet is a native app, not a browser, so the `direct_post` response has no cookies. Workarounds are needed to associate the response with the correct authentication session.
+
 <!--
 To answer the title question: yes, it really is a match made in heaven. Every OID4VP requirement maps cleanly to an existing Keycloak SPI. The Identity Provider SPI handles the protocol flow, the mapper SPI handles claim extraction, authentication sessions store ephemeral state, and the Admin UI provides configuration. We didn't have to fight the framework; we extended it naturally.
+
+There is one notable friction point though. Keycloak's Identity Provider SPI was designed for browser-based OAuth flows where the response comes back as a redirect carrying session cookies. The wallet is a native app — when it POSTs to the direct_post endpoint, there are no cookies. So we need workarounds to correlate the wallet's response with the right browser session. It's solvable, but it's the one place where the abstraction doesn't fit perfectly.
 -->
 
 ---
