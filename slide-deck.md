@@ -226,6 +226,18 @@ The credential offer URI uses a custom scheme so the wallet app can intercept it
 
 ---
 
+# OID4VCI — Additional Measures & Alternatives
+
+**`tx_code`** — The issuer can require a PIN (transaction code) that the user must enter in the wallet before the credential is issued. Prevents unauthorized use of intercepted credential offers.
+
+**Authorization Code Flow** — The wallet initiates issuance itself: discovers issuer metadata, starts an OAuth 2.0 authorization request with PKCE, and exchanges the resulting code for an access token. How the user authenticates is up to the authorization server.
+
+<!--
+tx_code adds an extra layer of security — even if someone intercepts a QR code, they can't claim the credential without the PIN. The Authorization Code Flow is the alternative to pre-authorized code — the wallet initiates the process instead of scanning a QR code from an already-authenticated session. How the user authenticates during the authorization step is independent of OID4VCI — for example, the German PID provider uses eID card authentication via NFC, but that's an implementation detail of the authorization server, not part of the OID4VCI spec.
+-->
+
+---
+
 <!-- _class: lead -->
 
 # Credential Presentation
