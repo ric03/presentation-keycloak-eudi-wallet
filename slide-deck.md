@@ -940,8 +940,7 @@ We're testing against real wallet implementations in the German sandbox, and it'
 https://ric03.github.io/presentation-keycloak-eudi-wallet/
 
 **Keycloak OID4VP Extension:**
-<!-- TODO: replace with actual GitHub URL -->
-https://github.com/TODO/keycloak-oid4vp
+https://github.com/ba-itsys/keycloak-extension-oid4vp
 
 </div>
 </div>
