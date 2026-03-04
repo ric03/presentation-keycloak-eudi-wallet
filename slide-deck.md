@@ -414,7 +414,7 @@ Two things a verifier must prove about a presentation:
 |---|---|---|
 | **Question** | Is the presenter the credential owner? | Is this response for *my* request? |
 | **SD-JWT** | KB-JWT signed with `cnf.jwk` key | KB-JWT contains `aud`, `nonce`, `sd_hash` |
-| **mDOC** | `DeviceAuth` signed with device key | `SessionTranscript` (deterministic CBOR) |
+| **mDOC** | `DeviceAuth` signed with holder key | `SessionTranscript` (deterministic CBOR) |
 
 **SD-JWT** combines both in a single **KB-JWT**.
 **mDOC** separates them — `DeviceAuth` for holder binding, `SessionTranscript` for request binding.
@@ -422,7 +422,7 @@ Two things a verifier must prove about a presentation:
 The session transcript is computed independently by both sides from protocol state (`nonce`, `client_id`, `response_uri`) — no shared secret needed.
 
 <!--
-Every credential presentation must prove two things. First, holder binding: the person presenting the credential is actually the person it was issued to. Second, request binding: the response is tied to a specific verifier request, preventing replay attacks. SD-JWT elegantly combines both in a single Key Binding JWT — the signature proves holder binding, while the aud, nonce, and sd_hash fields provide request binding. mDOC takes a different approach and separates these concerns. DeviceAuth is signed with the device key embedded in the MSO to prove holder binding. The session transcript is a deterministic CBOR structure that both the wallet and verifier compute independently from protocol state to provide request binding.
+Every credential presentation must prove two things. First, holder binding: the person presenting the credential is actually the person it was issued to. Second, request binding: the response is tied to a specific verifier request, preventing replay attacks. SD-JWT elegantly combines both in a single Key Binding JWT — the signature proves holder binding, while the aud, nonce, and sd_hash fields provide request binding. mDOC takes a different approach and separates these concerns. DeviceAuth is signed with the holder key embedded in the MSO to prove holder binding. The session transcript is a deterministic CBOR structure that both the wallet and verifier compute independently from protocol state to provide request binding.
 -->
 
 ---
@@ -450,6 +450,34 @@ Issuer                        Wallet                      Verifier
 
 <!--
 This is the chain of trust for key binding. The issuer embeds the holder's public key in the credential's cnf claim. When presenting, the wallet signs a Key Binding JWT. The verifier extracts the public key from the credential — trusted via the trust list — and verifies the KB-JWT signature. The sd_hash is computed over the entire SD-JWT presentation string, binding the proof to both the credential and the exact set of disclosed claims. Without this, anyone who copies a credential could present it.
+-->
+
+---
+
+# mDOC DeviceAuth — The Chain of Trust
+
+**Problem:** How does the verifier know the *presenter* owns the credential?
+
+```
+Issuer                        Wallet                      Verifier
+  │                              │                            │
+  │  1. Embed holder public key  │                            │
+  │     in MSO (DeviceKeyInfo)   │                            │
+  │  ───────────────────────►    │                            │
+  │                              │  2. Sign DeviceAuth with   │
+  │                              │     holder private key     │
+  │                              │  ──────────────────────►   │
+  │                              │                            │
+  │                              │  3. Extract holder key     │
+  │                              │     from issuer-signed     │
+  │                              │     MSO, verify DeviceAuth │
+```
+
+mDOC calls this the "device key" — it's the wallet's holder key stored in `DeviceKeyInfo`.
+**Verify:** validate issuer signature on MSO → extract holder key → check `DeviceAuth` signature
+
+<!--
+This is the mDOC equivalent of the KB-JWT chain of trust. The issuer embeds the holder's public key in the Mobile Security Object during credential issuance — mDOC calls this the "device key" because the spec assumes the key lives on the device's secure hardware. The MSO itself is signed by the issuer. When presenting, the wallet signs a DeviceAuth structure — a COSE signature over the SessionTranscript and DocType — using the holder's private key. The verifier first validates the issuer's signature on the MSO via the trust list, then extracts the holder key and verifies the DeviceAuth signature. The SessionTranscript is computed deterministically by both sides from protocol state, so it also provides request binding. Unlike SD-JWT where the KB-JWT combines holder binding and request binding, mDOC separates them — DeviceAuth for holder binding, SessionTranscript for request binding.
 -->
 
 ---
@@ -892,10 +920,10 @@ There is one notable friction point. Keycloak's Identity Provider SPI was design
 
 - Full **OID4VP verifier** as Keycloak Identity Provider
 - Support for **SD-JWT** and **mDOC** credentials
-- Three authentication flows: **DC API**, **same-device**, **cross-device**
+- Two authentication flows: **same-device** and **cross-device**
 - **DCQL auto-generation** from IdP mappers
 - **HAIP 1.0 compliant**: ES256, ECDH-ES + A128GCM/A256GCM, trust lists
-- Solved **German PID** linking with supplementary credentials
+- Solved **German PID** linking with supplementary credentials *(separate from extension)*
 
 <!--
 Let me summarize what we've built. It's a complete OID4VP integration that handles the full verification pipeline — from building the request to verifying the response and establishing a Keycloak session.
