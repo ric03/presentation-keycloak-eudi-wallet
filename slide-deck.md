@@ -298,23 +298,21 @@ This is the complete OID4VP flow using pass by reference. Instead of embedding t
 
 ---
 
-# OID4VP & SIOPv2 — Extending OAuth / OIDC
+# OID4VP — What's New vs. Standard OAuth / OIDC
 
-Two specs that work together on top of OAuth 2.0 / OIDC:
+OID4VP reuses the OAuth 2.0 authorization request/response — but extends it:
 
-| Spec | What it adds | `response_type` |
-|------|-------------|-----------------|
-| **OID4VP** | Verifiable Presentations | `vp_token` |
-| **SIOPv2** | Wallet as Self-Issued OP | `id_token` |
-| **Both** | Combined | `vp_token id_token` |
+|  | **Standard OIDC** | **OID4VP** |
+|---|---|---|
+| **Token type** | `id_token` / `code` | `vp_token` (verifiable presentation) |
+| **Request** | query params or `request_uri` | Signed JAR (`request_uri`) + DCQL query |
+| **Response mode** | `query` / `fragment` | `direct_post` · `direct_post.jwt` (encrypted!) |
+| **Client auth** | `client_secret` / PKCE | Client ID prefixes (details next slides) |
 
-- **SIOPv2**: the wallet acts as its own OpenID Provider, issuing `id_token`s signed with the holder's key (no central IdP needed)
-- **OID4VP**: adds `vp_token` for presenting verifiable credentials
-- Both specs reuse the standard OAuth 2.0 authorization request/response flow
-- HAIP / EUDI ecosystem primarily uses **`vp_token`** only
+There's also **SIOPv2** (Self-Issued OP): the wallet issues its own `id_token` — but in the EUDI ecosystem we use **`vp_token` only**.
 
 <!--
-These two specs are companions. SIOPv2 — Self-Issued OpenID Provider version 2 — turns the wallet into its own identity provider. Instead of redirecting to Google or GitHub, the wallet itself issues an id_token signed with the holder's key. OID4VP builds on top of this and adds the vp_token response type for presenting verifiable credentials. You can use them independently or together. When combined, the verifier gets both a self-issued id_token and a verifiable presentation in one response. In the EUDI ecosystem, we almost exclusively use vp_token alone because the credential itself carries all the identity information we need. But SIOPv2 is relevant when you want a wallet-level identity assertion — for example to correlate the wallet instance itself across sessions.
+OID4VP is built on OAuth 2.0, but the differences are significant. Instead of an id_token or authorization code, you get a vp_token containing a verifiable presentation. Instead of query parameters, the request is a signed JWT fetched via request_uri, containing a DCQL query describing what credentials are needed. The response doesn't come back as a redirect — it's a direct POST with an encrypted JWE. Client authentication uses X.509 certificates instead of client secrets. And response encryption with ephemeral keys is mandatory, not optional. There's also SIOPv2, where the wallet acts as its own OpenID Provider issuing id_tokens signed with the holder's key. But in the EUDI ecosystem we almost exclusively use vp_token alone — the credential itself carries all the identity information we need.
 -->
 
 ---
