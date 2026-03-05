@@ -172,6 +172,10 @@ This is the big picture. The Trust Anchor publishes trust lists so wallets can v
 
 ---
 
+![bg contain](assets/issuance.jpg)
+
+---
+
 # Keycloak OID4VCI — Preview Feature
 
 - Built-in support since Keycloak 24+ (experimental)
@@ -242,6 +246,10 @@ tx_code adds an extra layer of security — even if someone intercepts a QR code
 
 # Credential Presentation
 ## OID4VP Deep Dive
+
+---
+
+![bg contain](assets/presentation.jpg)
 
 ---
 
