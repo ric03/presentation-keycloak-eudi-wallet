@@ -15,6 +15,7 @@ jobs:
           node-version: 24
 
       - run: npx @marp-team/marp-cli@latest slide-deck.md -o dist/index.html --html
+      - run: npx @marp-team/marp-cli@latest slide-deck-lightning.md -o dist/lightning.html --html
       - run: cp -r assets dist/
 
       - name: Upload artifact
